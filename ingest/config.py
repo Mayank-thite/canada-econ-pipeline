@@ -20,16 +20,19 @@ BOC_SERIES = {
 # Statistics Canada vectors.
 STATCAN_VECTORS = {
     41690973: "cpi_all_items",  # Table 18-10-0004-01, Canada, all-items CPI, 2002=100, not seasonally adjusted
-    2062815: "unemployment_rate",  # Table 14-10-0287-01, Canada, 15+, seasonally adjusted
+    # Table 14-10-0287-01 (Labour Force Survey), Canada, total gender, 15 years and over, seasonally adjusted
+    2062815: "unemployment_rate",
 }
 
 # First load goes back this far. CPI needs one extra year before the FX start for YoY.
 BOC_START_DATE = date(2017, 1, 1)
 STATCAN_START_DATE = date(2016, 1, 1)
 
-# On incremental runs I re-pull a small window so revisions and late rows get picked up.
+# On incremental runs I re-pull the last week of Bank of Canada data so late or corrected rows get picked up.
 BOC_LOOKBACK_DAYS = 7
-STATCAN_LOOKBACK_MONTHS = 3
+# Statistics Canada is always pulled in full. The LFS seasonally adjusted series is revised every January
+# going back three years, so a short look-back window would miss those changes. Two monthly vectors since
+# 2016 are about 260 rows, so a full pull costs nothing.
 
 HTTP_TIMEOUT = 30
 HTTP_RETRIES = 4

@@ -1,7 +1,7 @@
 """Run the extract and load step.
 
 python -m ingest.main            # incremental, both sources
-python -m ingest.main --full     # reload from the configured start dates
+python -m ingest.main --full     # reload Bank of Canada data from the start date too
 python -m ingest.main --source boc
 """
 
@@ -10,12 +10,14 @@ import logging
 import sys
 from datetime import UTC, date, datetime, timedelta
 
+import requests
+from psycopg2.extensions import connection
+
 from ingest import boc, db, statcan
 from ingest.config import (
     BOC_LOOKBACK_DAYS,
     BOC_SERIES,
     BOC_START_DATE,
-    STATCAN_LOOKBACK_MONTHS,
     STATCAN_START_DATE,
     STATCAN_VECTORS,
     database_url,
@@ -32,16 +34,8 @@ def incremental_start(last: date | None, default: date, lookback: timedelta) -> 
     return max(default, last - lookback)
 
 
-def months_back(d: date, n: int) -> date:
-    month = d.month - n
-    year = d.year
-    while month <= 0:
-        month += 12
-        year -= 1
-    return date(year, month, 1)
-
-
-def load_boc(conn, session, full: bool) -> int:
+def load_boc(conn: connection, session: requests.Session, full: bool) -> int:
+    """Pull Bank of Canada series from the oldest watermark minus the look-back, and upsert them."""
     series = list(BOC_SERIES)
     starts = []
     for s in series:
@@ -62,15 +56,13 @@ def load_boc(conn, session, full: bool) -> int:
     return n
 
 
-def load_statcan(conn, session, full: bool) -> int:
+def load_statcan(conn: connection, session: requests.Session, full: bool) -> int:
+    """Pull the full Statistics Canada history every time so revisions to any month are picked up.
+
+    `full` is accepted so every loader has the same signature. This source always does a full pull.
+    """
     vectors = list(STATCAN_VECTORS)
-    starts = []
-    for v in vectors:
-        last = None if full else db.max_date(conn, "statcan_observations", "ref_period", "vector_id", v)
-        starts.append(
-            STATCAN_START_DATE if last is None else max(STATCAN_START_DATE, months_back(last, STATCAN_LOOKBACK_MONTHS))
-        )
-    start = min(starts)
+    start = STATCAN_START_DATE
     end = date.today()
     log.info("StatCan: pulling %d vectors from %s", len(vectors), start)
     info = statcan.parse_series_info(statcan.fetch_series_info(session, vectors))
@@ -85,7 +77,7 @@ def load_statcan(conn, session, full: bool) -> int:
 LOADERS = {"boc": load_boc, "statcan": load_statcan}
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--source", choices=[*LOADERS, "all"], default="all")
     parser.add_argument("--full", action="store_true", help="ignore watermarks and reload everything")
