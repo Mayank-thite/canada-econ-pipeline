@@ -1,0 +1,30 @@
+version: 2
+
+exposures:
+  - name: static_dashboard
+    label: Canada Econ Dashboard (GitHub Pages)
+    type: dashboard
+    maturity: medium
+    url: https://mayank-thite.github.io/canada-econ-pipeline/
+    description: Static HTML dashboard rebuilt by the daily GitHub Actions run from exported mart files.
+    depends_on:
+      - ref('fct_fx_daily')
+      - ref('fct_macro_monthly')
+    owner:
+      name: Mayank Thite
+      email: mayankthite.ca@gmail.com
+
+  - name: powerbi_macro_report
+    label: Power BI macro report
+    type: analysis
+    maturity: low
+    description: Power BI Desktop report built on the marts schema. Setup in docs/powerbi.md.
+    depends_on:
+      - ref('fct_macro_monthly')
+      - ref('fct_fx_daily')
+      - ref('fct_cpi_monthly')
+      - ref('fct_rates_daily')
+      - ref('dim_currency')
+    owner:
+      name: Mayank Thite
+      email: mayankthite.ca@gmail.com

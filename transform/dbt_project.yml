@@ -1,0 +1,35 @@
+name: canada_econ
+version: "1.0.0"
+config-version: 2
+profile: canada_econ
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages", "logs"]
+
+models:
+  canada_econ:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+tests:
+  canada_econ:
+    +store_failures: false
+
+vars:
+  cpi_vector_id: 41690973
+  unemployment_vector_id: 2062815
+
+seeds:
+  canada_econ:
+    +schema: reference

@@ -1,0 +1,6 @@
+currency_code,currency_name,boc_series_id
+USD,US dollar,FXUSDCAD
+EUR,Euro,FXEURCAD
+GBP,UK pound sterling,FXGBPCAD
+JPY,Japanese yen,FXJPYCAD
+CNY,Chinese renminbi,FXCNYCAD

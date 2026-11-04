@@ -1,0 +1,124 @@
+version: 2
+
+models:
+  - name: dim_currency
+    description: Tracked currencies with the date range covered.
+    columns:
+      - name: currency_code
+        description: ISO 4217 code.
+        data_tests: [unique, not_null]
+      - name: n_observations
+        description: Business days with a rate. Zero would mean the series stopped loading.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 1
+
+  - name: fct_fx_daily
+    description: >
+      Daily Bank of Canada FX rates with rolling averages and volatility. Grain is one row per
+      currency per business day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [currency_code, rate_date]
+    columns:
+      - name: currency_code
+        description: Foreign currency, ISO 4217.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_currency')
+                field: currency_code
+      - name: rate_date
+        description: Business day of the rate.
+        data_tests: [not_null]
+      - name: cad_per_unit
+        description: Canadian dollars per one unit of the foreign currency.
+        data_tests: [not_null]
+      - name: daily_change_pct
+        description: Log return from the previous business day, times 100.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: -10
+                max_value: 10
+      - name: rolling_avg_7d
+        description: Average of the last 7 business days. Null until 7 days exist.
+      - name: rolling_avg_30d
+        description: Average of the last 30 business days. Null until 30 days exist.
+      - name: volatility_30d_annualized_pct
+        description: Sample standard deviation of the last 30 daily log returns, times sqrt(252), in percent.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: fct_cpi_monthly
+    description: Monthly all-items CPI with month over month and year over year inflation.
+    columns:
+      - name: month
+        description: First day of the reference month.
+        data_tests: [unique, not_null, no_month_gaps]
+      - name: cpi_index
+        description: All-items CPI, 2002 = 100, not seasonally adjusted.
+        data_tests: [not_null]
+      - name: inflation_mom_pct
+        description: Percent change from the previous month. Not seasonally adjusted, so it has a seasonal pattern.
+      - name: inflation_yoy_pct
+        description: Percent change from the same month a year earlier. This is the headline inflation number.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: -5
+                max_value: 20
+      - name: release_time
+        description: When Statistics Canada published the value.
+
+  - name: fct_macro_monthly
+    description: One row per month combining inflation, unemployment, rates and USD/CAD.
+    columns:
+      - name: month
+        description: First day of the month.
+        data_tests: [unique, not_null, no_month_gaps]
+      - name: cpi_index
+        description: All-items CPI. Null until Statistics Canada releases the month.
+      - name: inflation_yoy_pct
+        description: CPI inflation, year over year.
+      - name: unemployment_rate_pct
+        description: Unemployment rate, 15 and over, seasonally adjusted.
+      - name: policy_rate_eom_pct
+        description: Bank of Canada target for the overnight rate on the last business day of the month.
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 15
+      - name: corra_avg_pct
+        description: Average CORRA over the month's business days.
+      - name: real_policy_rate_pct
+        description: Policy rate minus CPI inflation YoY. A rough measure of how tight policy is.
+      - name: usdcad_avg
+        description: Average USD/CAD over the month.
+        data_tests: [not_null]
+      - name: usdcad_eom
+        description: USD/CAD on the last business day of the month.
+
+  - name: fct_rates_daily
+    description: Daily Bank of Canada policy rate and CORRA, one row per business day.
+    columns:
+      - name: rate_date
+        description: Business day.
+        data_tests: [unique, not_null]
+      - name: policy_rate_pct
+        description: Target for the overnight rate, percent.
+      - name: corra_pct
+        description: Canadian Overnight Repo Rate Average, percent.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 15

@@ -1,0 +1,13 @@
+version: 2
+
+seeds:
+  - name: currencies
+    description: The foreign currencies I track, one row each.
+    config:
+      column_types:
+        currency_code: text
+        currency_name: text
+        boc_series_id: text
+    columns:
+      - name: currency_code
+        data_tests: [unique, not_null]

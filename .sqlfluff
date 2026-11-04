@@ -1,0 +1,22 @@
+[sqlfluff]
+dialect = postgres
+templater = jinja
+max_line_length = 120
+# Rules I do not want: aliasing every column explicitly and forcing a single style for CTE refs.
+exclude_rules = AM04, ST06, RF04
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+
+[sqlfluff:templater:jinja:context]
+cpi_vector_id = 41690973
+unemployment_vector_id = 2062815
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower

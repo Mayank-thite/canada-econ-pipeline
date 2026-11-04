@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: int_fx_daily_returns
+    description: FX rates with the previous business day rate and daily log return.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [currency_code, rate_date]
+  - name: int_rates_monthly
+    description: Month end policy rate and average CORRA per month.
+    columns:
+      - name: month
+        data_tests: [unique, not_null, no_month_gaps]
+  - name: int_fx_monthly
+    description: Monthly average and month end rate per currency.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [currency_code, month]

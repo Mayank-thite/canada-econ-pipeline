@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: stg_boc__fx_rates
+    description: Daily Bank of Canada FX rates, one row per currency per business day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [currency_code, rate_date]
+    columns:
+      - name: currency_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('currencies')
+                field: currency_code
+      - name: rate_date
+        data_tests: [not_null]
+      - name: cad_per_unit
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0.001
+                max_value: 10
+
+  - name: stg_boc__interest_rates
+    description: Daily policy rate and CORRA in percent, long format.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [rate_name, rate_date]
+    columns:
+      - name: rate_name
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [policy_rate, corra]
+      - name: rate_pct
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 15
+
+  - name: stg_statcan__cpi
+    description: Monthly all-items CPI for Canada.
+    columns:
+      - name: month
+        data_tests: [unique, not_null, no_month_gaps]
+      - name: cpi_index
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 100
+                max_value: 300
+
+  - name: stg_statcan__unemployment
+    description: Monthly unemployment rate for Canada, seasonally adjusted.
+    columns:
+      - name: month
+        data_tests: [unique, not_null, no_month_gaps]
+      - name: unemployment_rate_pct
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 2
+                max_value: 25

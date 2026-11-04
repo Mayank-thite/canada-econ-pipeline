@@ -1,0 +1,61 @@
+version: 2
+
+sources:
+  - name: boc
+    description: Bank of Canada Valet API, loaded by ingest/boc.py.
+    schema: raw
+    config:
+      freshness:
+        # Business daily data. Weekends and holidays mean a 3 to 4 day gap is normal.
+        warn_after: {count: 4, period: day}
+        error_after: {count: 7, period: day}
+      loaded_at_field: "obs_date::timestamp"
+    tables:
+      - name: boc_observations
+        description: One row per series and date. Long format.
+        columns:
+          - name: series_id
+            data_tests: [not_null]
+          - name: obs_date
+            data_tests: [not_null]
+          - name: value
+            data_tests: [not_null]
+        data_tests:
+          - unique_combination:
+              arguments:
+                columns: [series_id, obs_date]
+      - name: boc_series
+        description: Series metadata (label, unit) from the Valet seriesDetail block.
+        config:
+          freshness: null
+        columns:
+          - name: series_id
+            data_tests: [unique, not_null]
+
+  - name: statcan
+    description: Statistics Canada Web Data Service, loaded by ingest/statcan.py.
+    schema: raw
+    config:
+      freshness:
+        # Monthly data with about a 6 to 7 week release lag. ref_period is the first of the month.
+        warn_after: {count: 80, period: day}
+        error_after: {count: 110, period: day}
+      loaded_at_field: "ref_period::timestamp"
+    tables:
+      - name: statcan_observations
+        description: One row per vector and reference month.
+        columns:
+          - name: vector_id
+            data_tests: [not_null]
+          - name: ref_period
+            data_tests: [not_null]
+        data_tests:
+          - unique_combination:
+              arguments:
+                columns: [vector_id, ref_period]
+      - name: statcan_series
+        config:
+          freshness: null
+        columns:
+          - name: vector_id
+            data_tests: [unique, not_null]
