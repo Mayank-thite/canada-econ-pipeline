@@ -4,5 +4,5 @@ select
     value::numeric(5, 1) as unemployment_rate_pct,
     release_time,
     loaded_at
-from {{ source('statcan', 'statcan_observations') }}
+from {{ source('statcan', 'unemployment_observations') }}
 where vector_id = {{ var('unemployment_vector_id') }}

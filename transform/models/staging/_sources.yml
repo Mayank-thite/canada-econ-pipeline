@@ -35,12 +35,6 @@ sources:
   - name: statcan
     description: Statistics Canada Web Data Service, loaded by ingest/statcan.py.
     schema: raw
-    config:
-      freshness:
-        # Monthly data with about a 6 to 7 week release lag. ref_period is the first of the month.
-        warn_after: {count: 80, period: day}
-        error_after: {count: 110, period: day}
-      loaded_at_field: "ref_period::timestamp"
     tables:
       - name: statcan_observations
         description: One row per vector and reference month.
@@ -53,9 +47,30 @@ sources:
           - unique_combination:
               arguments:
                 columns: [vector_id, ref_period]
-      - name: statcan_series
+      # Freshness is checked per vector. On the whole table, the LFS (out about 5 weeks after the
+      # month) would hide a CPI series that had stopped loading. ref_period is the first of the month.
+      - name: cpi_observations
+        identifier: statcan_observations
+        description: CPI rows only, so CPI gets its own freshness check.
         config:
-          freshness: null
+          loaded_at_field: "ref_period::timestamp"
+          freshness:
+            # CPI for a month comes out in the third week of the next month, so the newest
+            # ref_period can be about 82 days old right before a release.
+            warn_after: {count: 90, period: day}
+            error_after: {count: 120, period: day}
+            filter: "vector_id = 41690973"
+      - name: unemployment_observations
+        identifier: statcan_observations
+        description: Unemployment rate rows only, so the LFS gets its own freshness check.
+        config:
+          loaded_at_field: "ref_period::timestamp"
+          freshness:
+            # The LFS comes out on the first or second Friday of the next month, so about 70 days at most.
+            warn_after: {count: 75, period: day}
+            error_after: {count: 105, period: day}
+            filter: "vector_id = 2062815"
+      - name: statcan_series
         columns:
           - name: vector_id
             data_tests: [unique, not_null]
