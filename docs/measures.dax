@@ -1,0 +1,72 @@
+// DAX measures for the Power BI report on the marts schema.
+// Tables: dim_currency, fct_fx_daily, fct_rates_daily, fct_cpi_monthly, fct_macro_monthly, plus a Date table.
+// Paste each block into New measure (or New table for the Date table).
+
+// ---------- Date table (New table) ----------
+Date =
+ADDCOLUMNS (
+    CALENDAR ( DATE ( 2017, 1, 1 ), TODAY () ),
+    "Year", YEAR ( [Date] ),
+    "Month Start", DATE ( YEAR ( [Date] ), MONTH ( [Date] ), 1 ),
+    "Month", FORMAT ( [Date], "yyyy-mm" ),
+    "Weekday", WEEKDAY ( [Date], 2 )
+)
+
+// ---------- FX ----------
+Avg Rate =
+AVERAGE ( fct_fx_daily[cad_per_unit] )
+
+Latest Rate =
+VAR LastDay = MAX ( fct_fx_daily[rate_date] )
+RETURN
+    CALCULATE ( AVERAGE ( fct_fx_daily[cad_per_unit] ), fct_fx_daily[rate_date] = LastDay )
+
+First Rate In Period =
+VAR FirstDay = MIN ( fct_fx_daily[rate_date] )
+RETURN
+    CALCULATE ( AVERAGE ( fct_fx_daily[cad_per_unit] ), fct_fx_daily[rate_date] = FirstDay )
+
+Rate Change % =
+DIVIDE ( [Latest Rate] - [First Rate In Period], [First Rate In Period] )
+
+Avg 30d Volatility % =
+AVERAGE ( fct_fx_daily[volatility_30d_annualized_pct] )
+
+Max Daily Move % =
+MAXX ( fct_fx_daily, ABS ( fct_fx_daily[daily_change_pct] ) )
+
+// ---------- Rates ----------
+Latest Policy Rate % =
+VAR LastDay = CALCULATE ( MAX ( fct_rates_daily[rate_date] ), NOT ISBLANK ( fct_rates_daily[policy_rate_pct] ) )
+RETURN
+    CALCULATE ( MAX ( fct_rates_daily[policy_rate_pct] ), fct_rates_daily[rate_date] = LastDay )
+
+Avg CORRA % =
+AVERAGE ( fct_rates_daily[corra_pct] )
+
+// ---------- Inflation and labour ----------
+Latest CPI YoY % =
+VAR LastMonth = CALCULATE ( MAX ( fct_cpi_monthly[month] ), NOT ISBLANK ( fct_cpi_monthly[inflation_yoy_pct] ) )
+RETURN
+    CALCULATE ( MAX ( fct_cpi_monthly[inflation_yoy_pct] ), fct_cpi_monthly[month] = LastMonth )
+
+Avg CPI YoY % =
+AVERAGE ( fct_macro_monthly[inflation_yoy_pct] )
+
+Latest Unemployment % =
+VAR LastMonth = CALCULATE ( MAX ( fct_macro_monthly[month] ), NOT ISBLANK ( fct_macro_monthly[unemployment_rate_pct] ) )
+RETURN
+    CALCULATE ( MAX ( fct_macro_monthly[unemployment_rate_pct] ), fct_macro_monthly[month] = LastMonth )
+
+Unemployment Change vs 12m Ago (pts) =
+VAR LastMonth = CALCULATE ( MAX ( fct_macro_monthly[month] ), NOT ISBLANK ( fct_macro_monthly[unemployment_rate_pct] ) )
+VAR YearAgo = EDATE ( LastMonth, -12 )
+RETURN
+    CALCULATE ( MAX ( fct_macro_monthly[unemployment_rate_pct] ), fct_macro_monthly[month] = LastMonth )
+        - CALCULATE ( MAX ( fct_macro_monthly[unemployment_rate_pct] ), fct_macro_monthly[month] = YearAgo )
+
+Real Policy Rate % =
+[Latest Policy Rate %] - [Latest CPI YoY %]
+
+Months Inflation Above 3% =
+COUNTROWS ( FILTER ( fct_macro_monthly, fct_macro_monthly[inflation_yoy_pct] > 3 ) )
