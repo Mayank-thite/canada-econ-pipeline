@@ -1,0 +1,19 @@
+[project]
+name = "canada-econ-pipeline"
+version = "1.0.0"
+description = "Daily ELT pipeline on Bank of Canada and Statistics Canada data with Postgres and dbt."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Mayank Thite" }]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["transform"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,23 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+logs/
+.user.yml
+
+# Local config and data
+.env
+pgdata/
+
+# Built in CI for GitHub Pages, not committed
+docs/dbt/
+
+.DS_Store

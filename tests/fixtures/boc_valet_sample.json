@@ -1,0 +1,89 @@
+{
+    "terms": {
+        "url": "https://www.bankofcanada.ca/terms/"
+    },
+    "seriesDetail": {
+        "AVG.INTWO": {
+            "label": "Canadian Overnight Repo Rate Average (CORRA)",
+            "description": "A measure of the cost of overnight general collateral funding in Canadian dollars using Government of Canada treasury bills and bonds as collateral for repurchase transactions (repos).",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "FXUSDCAD": {
+            "label": "USD/CAD",
+            "description": "Daily average exchange rate of the US dollar in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per US dollar",
+                "frequency": "Business daily"
+            }
+        }
+    },
+    "observations": [
+        {
+            "d": "2026-10-27",
+            "AVG.INTWO": {
+                "v": "2.2400"
+            },
+            "FXUSDCAD": {
+                "v": "1.4038"
+            }
+        },
+        {
+            "d": "2026-10-28",
+            "AVG.INTWO": {
+                "v": "2.2400"
+            },
+            "FXUSDCAD": {
+                "v": "1.4036"
+            }
+        },
+        {
+            "d": "2026-10-29",
+            "AVG.INTWO": {
+                "v": "2.4900"
+            },
+            "FXUSDCAD": {
+                "v": "1.3985"
+            }
+        },
+        {
+            "d": "2026-10-30",
+            "AVG.INTWO": {
+                "v": "2.5500"
+            },
+            "FXUSDCAD": {
+                "v": "1.3960"
+            }
+        },
+        {
+            "d": "2026-11-02",
+            "AVG.INTWO": {
+                "v": "2.5400"
+            },
+            "FXUSDCAD": {
+                "v": "1.3978"
+            }
+        },
+        {
+            "d": "2026-11-03",
+            "AVG.INTWO": {
+                "v": "2.5300"
+            },
+            "FXUSDCAD": {
+                "v": "1.3994"
+            }
+        }
+    ]
+}

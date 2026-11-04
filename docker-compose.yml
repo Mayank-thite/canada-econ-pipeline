@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: canada-econ-postgres
+    environment:
+      POSTGRES_USER: ${PGUSER:-econ}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-econ}
+      POSTGRES_DB: ${PGDATABASE:-econ}
+    ports:
+      - "${PGPORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-econ} -d ${PGDATABASE:-econ}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
