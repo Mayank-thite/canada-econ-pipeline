@@ -10,6 +10,7 @@ exposures:
     depends_on:
       - ref('fct_fx_daily')
       - ref('fct_macro_monthly')
+      - ref('fct_policy_rate_changes')
     owner:
       name: Mayank Thite
       email: mayankthite.ca@gmail.com

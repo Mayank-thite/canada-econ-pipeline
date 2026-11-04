@@ -88,7 +88,7 @@ models:
       - name: inflation_yoy_pct
         description: CPI inflation, year over year.
       - name: unemployment_rate_pct
-        description: Unemployment rate, 15 and over, seasonally adjusted.
+        description: Unemployment rate, Canada, 15 years and over, all genders, seasonally adjusted (LFS, table 14-10-0287-01, vector v2062815).
       - name: policy_rate_eom_pct
         description: Bank of Canada target for the overnight rate on the last business day of the month.
         data_tests:
@@ -100,7 +100,7 @@ models:
       - name: corra_avg_pct
         description: Average CORRA over the month's business days.
       - name: real_policy_rate_pct
-        description: Policy rate minus CPI inflation YoY. A rough measure of how tight policy is.
+        description: Month end policy rate minus CPI inflation YoY. Backward looking (it uses past inflation, not expected inflation), so it is a rough measure of how tight policy is.
       - name: usdcad_avg
         description: Average USD/CAD over the month.
         data_tests: [not_null]
@@ -122,3 +122,51 @@ models:
               arguments:
                 min_value: 0
                 max_value: 15
+
+  - name: fct_policy_rate_changes
+    description: >
+      One row per change in the Bank of Canada policy rate since 2017, with the USD/CAD move from two
+      business days before the effective date to one business day after. Holds are not included.
+    columns:
+      - name: effective_date
+        description: First business day series V39079 shows the new rate. Since 2022 this is the day after the announcement.
+        data_tests: [unique, not_null]
+      - name: previous_rate_pct
+        description: Policy rate before the change, percent.
+      - name: new_rate_pct
+        description: Policy rate after the change, percent.
+      - name: change_bps
+        description: Size of the change in basis points. Negative is a cut.
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: -150
+                max_value: 150
+      - name: direction
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [hike, cut]
+      - name: window_start
+        description: Business day two days before the effective date.
+      - name: window_end
+        description: Business day after the effective date. Null for a change made in the last day of data.
+      - name: usdcad_change_pct
+        description: Log change in USD/CAD over the window, times 100. Positive means CAD got weaker.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: -10
+                max_value: 10
+      - name: abs_move_percentile
+        description: Where the size of this move ranks among the same 3 day window on every day in the data, 0 to 100.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: median_abs_move_all_days_pct
+        description: Median size of the 3 day USD/CAD move across all days. Same value on every row, kept here as the benchmark.
+      - name: cad_moved_textbook_direction
+        description: True when a hike was followed by a stronger CAD or a cut by a weaker CAD.

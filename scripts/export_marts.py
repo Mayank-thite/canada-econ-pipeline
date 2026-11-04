@@ -10,6 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
+from psycopg2.extensions import connection
 
 from ingest.config import database_url
 from ingest.db import connect
@@ -17,17 +18,27 @@ from ingest.db import connect
 ROOT = Path(__file__).resolve().parents[1]
 MARTS_DIR = ROOT / "data" / "marts"
 DASHBOARD_JSON = ROOT / "docs" / "data" / "dashboard.json"
-MARTS = ["dim_currency", "fct_fx_daily", "fct_rates_daily", "fct_cpi_monthly", "fct_macro_monthly"]
+MARTS = [
+    "dim_currency",
+    "fct_fx_daily",
+    "fct_rates_daily",
+    "fct_cpi_monthly",
+    "fct_macro_monthly",
+    "fct_policy_rate_changes",
+]
 
 log = logging.getLogger("export")
 
 
-def _clean(value):
+def _clean(value: object) -> object:
+    """Make one cell JSON friendly: NaN to None, dates to ISO strings, numbers to float."""
     if pd.isna(value):
         return None
     if hasattr(value, "isoformat"):
         return value.isoformat()[:10]
-    return float(value) if not isinstance(value, str) else value
+    if isinstance(value, bool | str):
+        return value
+    return float(value)
 
 
 def records(df: pd.DataFrame, cols: list[str]) -> list[list]:
@@ -35,12 +46,35 @@ def records(df: pd.DataFrame, cols: list[str]) -> list[list]:
     return [[_clean(v) for v in row] for row in df[cols].itertuples(index=False, name=None)]
 
 
-def build_dashboard_payload(fx: pd.DataFrame, rates: pd.DataFrame, macro: pd.DataFrame, dim: pd.DataFrame) -> dict:
+def summarize_policy_changes(changes: pd.DataFrame) -> dict:
+    """The numbers the dashboard quotes about USD/CAD around policy rate changes."""
+    done = changes.dropna(subset=["usdcad_change_pct"])
+    textbook = done["cad_moved_textbook_direction"].astype(bool)
+    return {
+        "n_changes": int(len(done)),
+        "n_textbook_direction": int(textbook.sum()),
+        "median_abs_move_change_days_pct": round(float(done["usdcad_change_pct"].abs().median()), 3),
+        "median_abs_move_all_days_pct": round(float(done["median_abs_move_all_days_pct"].iloc[0]), 3),
+        "median_percentile": round(float(done["abs_move_percentile"].median()), 1),
+        "first_date": _clean(done["effective_date"].min()),
+    }
+
+
+def build_dashboard_payload(
+    fx: pd.DataFrame,
+    rates: pd.DataFrame,
+    macro: pd.DataFrame,
+    dim: pd.DataFrame,
+    changes: pd.DataFrame,
+) -> dict:
+    """Shape the marts into the small JSON file docs/index.html reads."""
     fx = fx.sort_values(["currency_code", "rate_date"])
     usd = fx[fx["currency_code"] == "USD"]
     latest_fx = fx.groupby("currency_code").tail(1).merge(dim[["currency_code", "currency_name"]], on="currency_code")
     macro = macro.sort_values("month")
     last_cpi = macro.dropna(subset=["inflation_yoy_pct"]).tail(1)
+    last_real = macro.dropna(subset=["real_policy_rate_pct"]).tail(1)
+    changes = changes.sort_values("effective_date")
     last_unemp = macro.dropna(subset=["unemployment_rate_pct"]).tail(1)
     last_usd = usd.tail(1)
     last_policy = rates.dropna(subset=["policy_rate_pct"]).sort_values("rate_date").tail(1)
@@ -67,13 +101,19 @@ def build_dashboard_payload(fx: pd.DataFrame, rates: pd.DataFrame, macro: pd.Dat
                 "value": _clean(last_unemp["unemployment_rate_pct"].iloc[0]),
                 "date": _clean(last_unemp["month"].iloc[0]),
             },
+            "real_policy_rate": {
+                "value": _clean(last_real["real_policy_rate_pct"].iloc[0]),
+                "policy_rate": _clean(last_real["policy_rate_eom_pct"].iloc[0]),
+                "cpi_yoy": _clean(last_real["inflation_yoy_pct"].iloc[0]),
+                "date": _clean(last_real["month"].iloc[0]),
+            },
         },
         "usdcad_daily": {
             "columns": ["date", "rate", "avg_30d", "vol_30d"],
             "rows": records(usd, ["rate_date", "cad_per_unit", "rolling_avg_30d", "volatility_30d_annualized_pct"]),
         },
         "macro_monthly": {
-            "columns": ["month", "cpi_yoy", "unemployment", "policy_rate", "corra_avg", "usdcad_avg"],
+            "columns": ["month", "cpi_yoy", "unemployment", "policy_rate", "corra_avg", "usdcad_avg", "real_rate"],
             "rows": records(
                 macro,
                 [
@@ -83,8 +123,14 @@ def build_dashboard_payload(fx: pd.DataFrame, rates: pd.DataFrame, macro: pd.Dat
                     "policy_rate_eom_pct",
                     "corra_avg_pct",
                     "usdcad_avg",
+                    "real_policy_rate_pct",
                 ],
             ),
+        },
+        "policy_changes": {
+            "columns": ["effective_date", "change_bps", "usdcad_change_pct", "abs_move_percentile"],
+            "rows": records(changes, ["effective_date", "change_bps", "usdcad_change_pct", "abs_move_percentile"]),
+            "summary": summarize_policy_changes(changes),
         },
         "latest_fx": records(
             latest_fx,
@@ -100,10 +146,10 @@ def build_dashboard_payload(fx: pd.DataFrame, rates: pd.DataFrame, macro: pd.Dat
     }
 
 
-def read_table(conn, table: str) -> pd.DataFrame:
-    """Read a table with psycopg2. Postgres numeric comes back as Decimal, so I cast those to float."""
+def read_table(conn: connection, table: str) -> pd.DataFrame:
+    """Read a table sorted by its first two columns. Postgres numeric comes back as Decimal, so I cast to float."""
     with conn.cursor() as cur:
-        cur.execute(f"select * from {table}")
+        cur.execute(f"select * from {table} order by 1, 2")  # stable order keeps the committed files diffable
         cols = [c.name for c in cur.description]
         df = pd.DataFrame(cur.fetchall(), columns=cols)
     for col in df.columns:
@@ -126,7 +172,11 @@ def main() -> None:
         log.info("Exported %s: %d rows", name, len(df))
 
     payload = build_dashboard_payload(
-        frames["fct_fx_daily"], frames["fct_rates_daily"], frames["fct_macro_monthly"], frames["dim_currency"]
+        frames["fct_fx_daily"],
+        frames["fct_rates_daily"],
+        frames["fct_macro_monthly"],
+        frames["dim_currency"],
+        frames["fct_policy_rate_changes"],
     )
     DASHBOARD_JSON.parent.mkdir(parents=True, exist_ok=True)
     DASHBOARD_JSON.write_text(json.dumps(payload, separators=(",", ":")))
