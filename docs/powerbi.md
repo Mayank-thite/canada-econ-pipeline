@@ -27,6 +27,7 @@ That leaves Postgres running on `localhost:5432`, database `econ`, user `econ`, 
    - `marts.fct_rates_daily`
    - `marts.fct_cpi_monthly`
    - `marts.fct_macro_monthly`
+   - `marts.fct_policy_rate_changes`
 6. Click **Load**.
 
 Recent versions of Power BI Desktop ship with the Npgsql driver. If yours says the provider is

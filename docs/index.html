@@ -4,184 +4,286 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Canada Econ Dashboard</title>
-<meta name="description" content="Daily Bank of Canada FX and rates, plus Statistics Canada CPI and unemployment, rebuilt every day by a dbt and Postgres pipeline.">
+<meta name="description" content="Bank of Canada policy rate, CPI inflation, unemployment and USD/CAD, rebuilt every weekday by a Postgres and dbt pipeline.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap">
 <style>
   :root {
-    color-scheme: light;
-    --surface-0: #f4f3f0;
-    --surface-1: #fcfcfb;
-    --border: #e2e1dc;
-    --grid: #ebeae6;
-    --text-primary: #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted: #6f6e69;
-    --series-1: #2a78d6;
-    --series-2: #eb6834;
-    --accent: #2a78d6;
+    color-scheme: dark;
+    --bg: #04050A;
+    --ink: #ECEEF3;
+    --text-2: #A4ABBD;
+    --body: #C9CEDA;
+    --line: rgba(220, 226, 240, .12);
+    --grid: rgba(220, 226, 240, .07);
+    --panel: #0B0D15;
+    --accent: #FFC77A;
+    --cool: #9CCBFF;
+    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --surface-0: #121211;
-      --surface-1: #1a1a19;
-      --border: #2e2e2c;
-      --grid: #282826;
-      --text-primary: #f0efec;
-      --text-secondary: #c3c2b7;
-      --text-muted: #9a9991;
-      --series-1: #3987e5;
-      --series-2: #d95926;
-      --accent: #5598e7;
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #F6F6F3;
+      --ink: #0B0D15;
+      --text-2: #4A5163;
+      --body: #262B38;
+      --line: rgba(11, 13, 21, .12);
+      --grid: rgba(11, 13, 21, .07);
+      --panel: #FFFFFF;
+      --accent: #A45F00;
+      --cool: #2563A8;
     }
   }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --surface-0: #121211;
-    --surface-1: #1a1a19;
-    --border: #2e2e2c;
-    --grid: #282826;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #9a9991;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --accent: #5598e7;
-  }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
-    background: var(--surface-0);
-    color: var(--text-primary);
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--body);
+    font: 300 16px/1.6 var(--sans);
+    font-variant-numeric: tabular-nums;
   }
-  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
-  header h1 { font-size: 24px; margin: 0 0 4px; }
-  header p { margin: 0; color: var(--text-secondary); }
-  .meta { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 20px 0; }
-  .kpi, .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; }
-  .kpi { padding: 14px 16px; }
-  .kpi .label { font-size: 13px; color: var(--text-secondary); }
-  .kpi .value { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; margin: 2px 0; }
-  .kpi .asof { font-size: 12px; color: var(--text-muted); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 16px; }
-  .card { padding: 16px; min-width: 0; }
-  .card h2 { font-size: 16px; margin: 0 0 2px; }
-  .card .sub { font-size: 13px; color: var(--text-muted); margin: 0 0 10px; }
-  .chart { position: relative; height: 280px; }
-  .controls { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-  .controls span { font-size: 13px; color: var(--text-secondary); margin-right: 4px; }
+  main { max-width: 1120px; margin: 0 auto; padding: 56px 16px 72px; }
+  a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .label {
+    font: 400 11px/1.4 var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-2);
+  }
+  header { max-width: 780px; }
+  h1 { color: var(--ink); font-weight: 400; font-size: clamp(26px, 4.2vw, 38px); line-height: 1.2; letter-spacing: -.01em; margin: 14px 0 16px; }
+  .lede { margin: 0; font-size: 17px; }
+  .lede strong, .finding strong { color: var(--ink); font-weight: 500; }
+  .meta { margin-top: 18px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 44px 0 56px; }
+  .kpi, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .kpi { padding: 18px 18px 16px; min-width: 0; }
+  .kpi .value { font: 400 30px/1.1 var(--mono); color: var(--ink); margin: 12px 0 8px; letter-spacing: -.02em; }
+  .kpi .value.hl { color: var(--accent); }
+  .kpi .sub { font-size: 13px; color: var(--text-2); line-height: 1.45; }
+  section.block { margin: 0 0 56px; }
+  section.block > h2 { color: var(--ink); font-weight: 400; font-size: 22px; line-height: 1.3; margin: 10px 0 8px; }
+  .finding { max-width: 760px; margin: 0 0 22px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .card { padding: 20px 20px 14px; min-width: 0; }
+  .card h3 { color: var(--ink); font-weight: 400; font-size: 16px; margin: 0 0 4px; }
+  .card .sub { font-size: 13px; color: var(--text-2); margin: 0 0 14px; }
+  .chart { position: relative; height: 260px; }
+  .chart.tall { height: 300px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin: 0 4px 0 2px; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 20px; }
+  .controls .label { margin-right: 6px; }
   .controls button {
-    font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 6px; cursor: pointer;
-    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    font: 400 12px/1 var(--mono); letter-spacing: .06em; padding: 8px 12px; min-height: 32px;
+    border-radius: 8px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--text-2);
   }
-  .controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
-  th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--border); }
-  th:first-child, td:first-child { text-align: left; }
-  th { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+  .controls button:hover { color: var(--ink); }
+  .controls button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
   .table-wrap { overflow-x: auto; }
-  footer { margin-top: 24px; font-size: 13px; color: var(--text-muted); }
-  footer a, header a { color: var(--accent); }
-  .error { padding: 16px; border: 1px solid var(--series-2); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font: 400 11px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+  td { font-family: var(--mono); font-size: 13px; color: var(--body); }
+  td:first-child { font-family: var(--sans); }
+  td .name { color: var(--text-2); }
+  tr:last-child td { border-bottom: 0; }
+  .notes { max-width: 760px; font-size: 14px; }
+  .notes p { margin: 0 0 12px; }
+  footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13px; color: var(--text-2); }
+  footer p { margin: 0 0 6px; }
+  .error { padding: 16px; border: 1px solid var(--accent); border-radius: 8px; grid-column: 1 / -1; }
+  @media (max-width: 860px) {
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid2 { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 480px) {
+    main { padding-top: 36px; }
+    .kpi { padding: 14px; }
+    .kpi .value { font-size: 24px; }
+    .card { padding: 16px 12px 10px; }
+    .chart { height: 230px; }
+    .hide-sm { display: none; }
+    td .name { display: none; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .controls button, a { transition: color .15s, border-color .15s, text-decoration-color .15s; }
+  }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Canada economy, updated daily</h1>
-    <p>Bank of Canada FX and interest rates, plus Statistics Canada CPI and unemployment. Loaded into Postgres and modeled with dbt every day.</p>
-    <div class="meta" id="generated"></div>
+    <div class="label">Canada econ pipeline / updated each weekday</div>
+    <h1 id="headline">Inflation against the Bank of Canada policy rate</h1>
+    <p class="lede" id="lede">Bank of Canada rates and FX with Statistics Canada CPI and unemployment, loaded into Postgres and modeled with dbt.</p>
+    <p class="label meta" id="generated"></p>
   </header>
 
   <section class="kpis" id="kpis" aria-label="Latest values"></section>
 
-  <div class="controls" role="group" aria-label="Time range">
-    <span>Range</span>
-    <button type="button" data-range="1">1Y</button>
-    <button type="button" data-range="3" aria-pressed="true">3Y</button>
-    <button type="button" data-range="5">5Y</button>
-    <button type="button" data-range="0">All</button>
+  <div class="controls" role="group" aria-label="Time range for the line charts">
+    <span class="label">Range</span>
+    <button type="button" data-range="1" aria-pressed="false">1Y</button>
+    <button type="button" data-range="3" aria-pressed="false">3Y</button>
+    <button type="button" data-range="5" aria-pressed="true">5Y</button>
+    <button type="button" data-range="0" aria-pressed="false">All</button>
   </div>
 
-  <div class="grid">
-    <section class="card">
-      <h2>USD/CAD daily rate</h2>
-      <p class="sub">Canadian dollars per US dollar, with the 30 business day average</p>
-      <div class="chart"><canvas id="fxChart" aria-label="USD/CAD daily rate chart" role="img"></canvas></div>
-    </section>
-    <section class="card">
-      <h2>USD/CAD 30 day volatility</h2>
-      <p class="sub">Std dev of daily log returns, annualized, percent</p>
-      <div class="chart"><canvas id="volChart" aria-label="USD/CAD volatility chart" role="img"></canvas></div>
-    </section>
-    <section class="card">
-      <h2>Inflation and the policy rate</h2>
-      <p class="sub">CPI year over year and the policy rate at month end, both in percent</p>
-      <div class="chart"><canvas id="ratesChart" aria-label="Inflation and policy rate chart" role="img"></canvas></div>
-    </section>
-    <section class="card">
-      <h2>Unemployment rate</h2>
-      <p class="sub">Canada, 15 and over, seasonally adjusted, percent</p>
-      <div class="chart"><canvas id="unempChart" aria-label="Unemployment rate chart" role="img"></canvas></div>
-    </section>
-  </div>
+  <section class="block" aria-labelledby="h-rates">
+    <div class="label">Rates and inflation</div>
+    <h2 id="h-rates">Is the policy rate above or below inflation?</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Policy rate and CPI inflation</h3>
+        <p class="sub">Percent. Policy rate at month end, CPI change from a year earlier</p>
+        <div class="chart"><canvas id="ratesChart" role="img" aria-label="Line chart of the policy rate and CPI inflation by month"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Real policy rate</h3>
+        <p class="sub">Percentage points. Policy rate minus CPI inflation. Below the dashed zero line, the rate is under inflation</p>
+        <div class="chart"><canvas id="realChart" role="img" aria-label="Line chart of the real policy rate by month"></canvas></div>
+      </div>
+    </div>
+  </section>
 
-  <section class="card" style="margin-top:16px">
-    <h2>Latest FX rates</h2>
-    <p class="sub">CAD per one unit of each currency, most recent business day</p>
-    <div class="table-wrap"><table id="fxTable">
-      <thead><tr><th>Currency</th><th>Date</th><th>Rate</th><th>30d avg</th><th>vs 30d avg</th><th>30d vol (ann.)</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
+  <section class="block" aria-labelledby="h-moves">
+    <div class="label">CAD and rate decisions</div>
+    <h2 id="h-moves">Did the loonie react when the rate changed?</h2>
+    <p class="finding" id="movesFinding"></p>
+    <div class="card">
+      <h3>USD/CAD move around each policy rate change</h3>
+      <p class="sub">Percent change in USD/CAD from two business days before the new rate took effect to one day after. Above zero means CAD got weaker.
+        <span class="swatch" style="background:var(--accent)"></span>hike
+        <span class="swatch" style="background:var(--cool)"></span>cut.
+        Dashed lines mark the median size of the same window on any day.</p>
+      <div class="chart tall"><canvas id="movesChart" role="img" aria-label="Bar chart of the USD/CAD move around each policy rate change"></canvas></div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-more">
+    <div class="label">Context</div>
+    <h2 id="h-more">The exchange rate and the job market</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>USD/CAD daily</h3>
+        <p class="sub">Canadian dollars per US dollar, Bank of Canada daily average, with the 30 business day average</p>
+        <div class="chart"><canvas id="fxChart" role="img" aria-label="Line chart of the daily USD/CAD rate"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Unemployment rate</h3>
+        <p class="sub">Percent. Canada, 15 years and over, all genders, seasonally adjusted (Labour Force Survey)</p>
+        <div class="chart"><canvas id="unempChart" role="img" aria-label="Line chart of the unemployment rate by month"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-fx">
+    <div class="label">All tracked currencies</div>
+    <h2 id="h-fx">Latest Bank of Canada exchange rates</h2>
+    <div class="card">
+      <div class="table-wrap"><table id="fxTable">
+        <thead><tr><th>Currency</th><th class="hide-sm">Date</th><th>CAD per unit</th><th>vs 30d avg</th><th>30d vol, ann.</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="block notes" aria-labelledby="h-notes">
+    <div class="label">Notes</div>
+    <h2 id="h-notes">What to keep in mind</h2>
+    <p>The real policy rate here uses inflation over the past year, not what people expect inflation to be. It says where policy sits against recent prices, not whether it is too tight or too loose.</p>
+    <p>The rate change chart only has the days the policy rate moved. Holds are not in the data. Most changes were expected by markets ahead of time, so a small move in the window does not mean the decision did not matter, and other news lands in the same few days. I read it as a description, not a causal estimate.</p>
+    <p>CPI and unemployment come out about three to seven weeks after the month ends, so they lag the daily series. CPI is not seasonally adjusted, which is fine for the year over year change used here.</p>
   </section>
 
   <footer>
-    Sources: <a href="https://www.bankofcanada.ca/valet/docs">Bank of Canada Valet API</a> and
-    <a href="https://www.statcan.gc.ca/en/developers/wds">Statistics Canada Web Data Service</a>
-    (tables 18-10-0004-01 and 14-10-0287-01). Every number here comes from the pipeline's mart tables.
-    <a href="dbt/index.html">dbt docs</a> ·
-    <a href="https://github.com/mayank-thite/canada-econ-pipeline">source code</a>
+    <p id="asof"></p>
+    <p>Sources: <a href="https://www.bankofcanada.ca/valet/docs">Bank of Canada Valet API</a> (FX series, V39079 policy rate, CORRA) and
+      <a href="https://www.statcan.gc.ca/en/developers/wds">Statistics Canada Web Data Service</a>
+      (CPI table 18-10-0004-01, LFS table 14-10-0287-01). Every number on this page comes from the pipeline's mart tables.</p>
+    <p><a href="dbt/index.html">dbt docs</a> / <a href="https://github.com/mayank-thite/canada-econ-pipeline">source code</a></p>
   </footer>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (function () {
+  "use strict";
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  const fmt = (v, d) => (v === null || v === undefined ? "n/a" : Number(v).toFixed(d));
-  const monthName = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-CA", { year: "numeric", month: "short" });
-  const dayName = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
-  let data, charts = [], rangeYears = 3;
+  const num = (v, d) => (v === null || v === undefined ? "n/a" : Number(v).toFixed(d));
+  const signed = (v, d) => (v === null || v === undefined ? "n/a" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d));
+  const asDate = (iso) => new Date(iso + "T00:00:00");
+  const monthName = (iso) => asDate(iso).toLocaleDateString("en-CA", { year: "numeric", month: "short" });
+  const monthLong = (iso) => asDate(iso).toLocaleDateString("en-CA", { year: "numeric", month: "long" });
+  const dayName = (iso) => asDate(iso).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
+  const setText = (id, text) => { document.getElementById(id).textContent = text; };
+  const setHtml = (id, html) => { document.getElementById(id).innerHTML = html; };
+  let data, charts = [], rangeYears = 5;
 
   function cutoff(lastIso, years) {
     if (!years) return "0000-00-00";
-    const d = new Date(lastIso + "T00:00:00");
+    const d = asDate(lastIso);
     d.setFullYear(d.getFullYear() - years);
     return d.toISOString().slice(0, 10);
   }
 
-  function baseOptions(yLabel, decimals, labelFn) {
+  // Draws each dataset's name next to its last point, so the line charts need no legend.
+  const directLabels = {
+    id: "directLabels",
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.font = "400 11px " + css("--mono");
+      ctx.textBaseline = "middle";
+      chart.data.datasets.forEach((ds, i) => {
+        if (!ds.directLabel) return;
+        const meta = chart.getDatasetMeta(i);
+        for (let j = ds.data.length - 1; j >= 0; j--) {
+          if (ds.data[j] === null || ds.data[j] === undefined) continue;
+          const pt = meta.data[j];
+          ctx.fillStyle = ds.borderColor;
+          ctx.fillText(ds.directLabel, pt.x + 6, pt.y + (ds.labelOffset || 0));
+          break;
+        }
+      });
+      ctx.restore();
+    },
+  };
+
+  function baseOptions(unit, decimals, labelFn, rightPad) {
+    const tick = css("--text-2");
+    const xTicks = window.innerWidth < 480 ? 3 : 5;
     return {
       responsive: true, maintainAspectRatio: false, animation: false,
+      layout: { padding: { right: rightPad || 0, top: 6 } },
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { display: false, labels: { color: css("--text-secondary"), boxWidth: 12, boxHeight: 2 } },
+        legend: { display: false },
         tooltip: {
+          backgroundColor: css("--panel"), borderColor: css("--line"), borderWidth: 1,
+          titleColor: css("--ink"), bodyColor: css("--body"), padding: 10,
+          titleFont: { family: css("--mono"), size: 11 }, bodyFont: { family: css("--mono"), size: 12 },
           callbacks: {
             title: (items) => labelFn(items[0].label),
-            label: (item) => " " + item.dataset.label + ": " + fmt(item.parsed.y, decimals) + yLabel,
+            label: (item) => " " + item.dataset.label + ": " + num(item.parsed.y, decimals) + unit,
           },
         },
       },
       scales: {
-        x: { grid: { display: false }, border: { color: css("--border") },
-             ticks: { color: css("--text-muted"), maxRotation: 0, autoSkip: true, maxTicksLimit: 6,
+        x: { grid: { display: false }, border: { color: css("--line") },
+             ticks: { color: tick, maxRotation: 0, autoSkip: true, maxTicksLimit: xTicks, font: { family: css("--mono"), size: 11 },
                       callback: function (v) { return monthName(this.getLabelForValue(v)); } } },
         y: { grid: { color: css("--grid") }, border: { display: false },
-             ticks: { color: css("--text-muted"), maxTicksLimit: 6 } },
+             ticks: { color: tick, maxTicksLimit: 6, font: { family: css("--mono"), size: 11 } } },
       },
-      elements: { point: { radius: 0, hoverRadius: 4, hitRadius: 8 }, line: { borderWidth: 2, tension: 0 } },
+      elements: { point: { radius: 0, hoverRadius: 3, hitRadius: 8 }, line: { borderWidth: 1.75, tension: 0 } },
     };
   }
 
@@ -189,72 +291,135 @@
     return Object.assign({ label, data: values, borderColor: color, backgroundColor: color, spanGaps: true }, extra || {});
   }
 
+  function refLine(label, n, value, color) {
+    return { type: "line", label, data: new Array(n).fill(value), borderColor: color, borderWidth: 1,
+             borderDash: [4, 4], pointRadius: 0, pointHitRadius: 0, isRef: true };
+  }
+
   function render() {
     charts.forEach((c) => c.destroy());
     charts = [];
+    Chart.defaults.font.family = css("--sans");
+    const amber = css("--accent"), cool = css("--cool"), muted = css("--text-2");
     const fx = data.usdcad_daily.rows;
-    const fxCut = cutoff(fx[fx.length - 1][0], rangeYears);
-    const fxRows = fx.filter((r) => r[0] >= fxCut);
+    const fxRows = fx.filter((r) => r[0] >= cutoff(fx[fx.length - 1][0], rangeYears));
     const macro = data.macro_monthly.rows;
-    const mCut = cutoff(macro[macro.length - 1][0], rangeYears);
-    const mRows = macro.filter((r) => r[0] >= mCut);
-    const s1 = css("--series-1"), s2 = css("--series-2");
+    const mRows = macro.filter((r) => r[0] >= cutoff(macro[macro.length - 1][0], rangeYears));
+    const narrow = window.innerWidth < 480;
+    const noRefs = (item) => !item.dataset.isRef;
 
-    const fxOpts = baseOptions("", 4, dayName);
-    fxOpts.plugins.legend.display = true;
-    charts.push(new Chart(document.getElementById("fxChart"), {
-      type: "line",
-      data: { labels: fxRows.map((r) => r[0]), datasets: [
-        line("USD/CAD", fxRows.map((r) => r[1]), s1, { borderWidth: 1.5 }),
-        line("30 day avg", fxRows.map((r) => r[2]), s2),
-      ] },
-      options: fxOpts,
-    }));
-
-    charts.push(new Chart(document.getElementById("volChart"), {
-      type: "line",
-      data: { labels: fxRows.map((r) => r[0]), datasets: [line("30d volatility", fxRows.map((r) => r[3]), s1)] },
-      options: baseOptions("%", 2, dayName),
-    }));
-
-    const rOpts = baseOptions("%", 2, monthName);
-    rOpts.plugins.legend.display = true;
+    const rOpts = baseOptions("%", 2, monthName, narrow ? 44 : 56);
+    rOpts.scales.y.beginAtZero = true;
     charts.push(new Chart(document.getElementById("ratesChart"), {
       type: "line",
       data: { labels: mRows.map((r) => r[0]), datasets: [
-        line("CPI inflation YoY", mRows.map((r) => r[1]), s1),
-        line("Policy rate", mRows.map((r) => r[3]), s2, { stepped: "before" }),
+        line("CPI inflation", mRows.map((r) => r[1]), cool, { directLabel: "CPI" }),
+        line("Policy rate", mRows.map((r) => r[3]), amber, { stepped: "before", directLabel: "Policy" }),
       ] },
       options: rOpts,
+      plugins: [directLabels],
+    }));
+
+    const realOpts = baseOptions(" pts", 2, monthName);
+    realOpts.plugins.tooltip.filter = noRefs;
+    charts.push(new Chart(document.getElementById("realChart"), {
+      type: "line",
+      data: { labels: mRows.map((r) => r[0]), datasets: [
+        line("Real policy rate", mRows.map((r) => r[6]), amber),
+        refLine("zero", mRows.length, 0, muted),
+      ] },
+      options: realOpts,
+    }));
+
+    const fxOpts = baseOptions("", 4, dayName, narrow ? 48 : 62);
+    charts.push(new Chart(document.getElementById("fxChart"), {
+      type: "line",
+      data: { labels: fxRows.map((r) => r[0]), datasets: [
+        line("USD/CAD", fxRows.map((r) => r[1]), amber, { borderWidth: 1.25, directLabel: "Daily", labelOffset: -9 }),
+        line("30 day avg", fxRows.map((r) => r[2]), cool, { directLabel: narrow ? "Avg" : "30d avg", labelOffset: 9 }),
+      ] },
+      options: fxOpts,
+      plugins: [directLabels],
     }));
 
     charts.push(new Chart(document.getElementById("unempChart"), {
       type: "line",
-      data: { labels: mRows.map((r) => r[0]), datasets: [line("Unemployment rate", mRows.map((r) => r[2]), s1)] },
+      data: { labels: mRows.map((r) => r[0]), datasets: [line("Unemployment rate", mRows.map((r) => r[2]), cool)] },
       options: baseOptions("%", 1, monthName),
+    }));
+
+    // The bar chart ignores the range buttons: it always has one bar per rate change since 2017.
+    const pc = data.policy_changes.rows.filter((r) => r[2] !== null);
+    const typical = data.policy_changes.summary.median_abs_move_all_days_pct;
+    const mOpts = baseOptions("%", 2, dayName, 12);
+    mOpts.interaction = { mode: "index", intersect: false };
+    mOpts.scales.y.beginAtZero = true;
+    mOpts.scales.y.ticks.callback = (v) => v + "%";
+    mOpts.scales.x.ticks.autoSkip = false;
+    mOpts.scales.x.ticks.callback = function (v, i) {
+      const y = this.getLabelForValue(v).slice(0, 4);
+      const prev = i > 0 ? this.getLabelForValue(i - 1).slice(0, 4) : null;
+      return y !== prev ? (narrow ? "'" + y.slice(2) : y) : "";
+    };
+    mOpts.plugins.tooltip.filter = noRefs;
+    mOpts.plugins.tooltip.callbacks.label = (item) => {
+      const r = pc[item.dataIndex];
+      return [" " + signed(r[1], 0) + " bps rate change", " USD/CAD " + signed(r[2], 2) + "%", " bigger than " + num(r[3], 0) + "% of all windows"];
+    };
+    charts.push(new Chart(document.getElementById("movesChart"), {
+      data: { labels: pc.map((r) => r[0]), datasets: [
+        { type: "bar", label: "USD/CAD move", data: pc.map((r) => r[2]),
+          backgroundColor: pc.map((r) => (r[1] > 0 ? amber : cool)), borderRadius: 2, maxBarThickness: 18 },
+        refLine("typical", pc.length, typical, muted),
+        refLine("typical", pc.length, -typical, muted),
+      ] },
+      options: mOpts,
     }));
   }
 
   function renderStatic() {
-    const k = data.kpis;
+    const k = data.kpis, real = k.real_policy_rate, s = data.policy_changes.summary;
+    const changes = data.policy_changes.rows;
+    const lastChange = changes[changes.length - 1];
+
+    setText("headline", real.value < 0
+      ? "Inflation is running above the Bank of Canada policy rate"
+      : "The Bank of Canada policy rate is above inflation");
+    let lede = "In " + monthLong(real.date) + " CPI was up <strong>" + num(real.cpi_yoy, 1) + "%</strong> on a year earlier and the policy rate ended the month at <strong>" +
+      num(real.policy_rate, 2) + "%</strong>, a real rate of <strong>" + signed(real.value, 2) + " points</strong>.";
+    const nextMonth = asDate(real.date);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    if (lastChange && lastChange[0] >= nextMonth.toISOString().slice(0, 10)) {
+      lede += " Since then the Bank has " + (lastChange[1] > 0 ? "raised" : "cut") + " the rate to " + num(k.policy_rate.value, 2) + "%, effective " + dayName(lastChange[0]) + ".";
+    }
+    setHtml("lede", lede);
+    setText("generated", "Pipeline run " + data.generated_at.replace("T", " ").replace(/:\d\dZ$/, " UTC"));
+
     const tiles = [
-      ["USD/CAD", fmt(k.usdcad.value, 4), dayName(k.usdcad.date)],
-      ["Policy rate", fmt(k.policy_rate.value, 2) + "%", dayName(k.policy_rate.date)],
-      ["CPI inflation YoY", fmt(k.cpi_yoy.value, 1) + "%", monthName(k.cpi_yoy.date)],
-      ["Unemployment rate", fmt(k.unemployment.value, 1) + "%", monthName(k.unemployment.date)],
-      ["USD/CAD 30d volatility", fmt(k.usdcad_vol.value, 1) + "%", dayName(k.usdcad_vol.date)],
+      ["Real policy rate", signed(real.value, 2) + " pts", "Policy " + num(real.policy_rate, 2) + "% minus CPI " + num(real.cpi_yoy, 2) + "%, " + monthName(real.date), true],
+      ["CPI inflation", num(k.cpi_yoy.value, 1) + "%", "Year over year, " + monthName(k.cpi_yoy.date)],
+      ["Unemployment", num(k.unemployment.value, 1) + "%", "Seasonally adjusted, " + monthName(k.unemployment.date)],
+      ["USD/CAD", num(k.usdcad.value, 4), "CAD per USD, " + dayName(k.usdcad.date)],
     ];
-    document.getElementById("kpis").innerHTML = tiles.map((t) =>
-      '<div class="kpi"><div class="label">' + t[0] + '</div><div class="value">' + t[1] +
-      '</div><div class="asof">as of ' + t[2] + "</div></div>").join("");
-    document.getElementById("generated").textContent =
-      "Last pipeline run: " + data.generated_at.replace("T", " ").replace("Z", " UTC");
-    const tbody = document.querySelector("#fxTable tbody");
-    tbody.innerHTML = data.latest_fx.map((r) => {
+    setHtml("kpis", tiles.map((t) =>
+      '<div class="kpi"><div class="label">' + t[0] + '</div><div class="value' + (t[3] ? " hl" : "") + '">' + t[1] +
+      '</div><div class="sub">' + t[2] + "</div></div>").join(""));
+
+    setHtml("movesFinding",
+      "Not by much. Across the <strong>" + s.n_changes + " rate changes</strong> since " + monthLong(s.first_date) +
+      ", the median USD/CAD move in the window was <strong>" + num(s.median_abs_move_change_days_pct, 2) + "%</strong>, against <strong>" +
+      num(s.median_abs_move_all_days_pct, 2) + "%</strong> for the same window on any day. The direction did mostly follow the textbook, where a hike makes CAD stronger and a cut makes it weaker: " +
+      s.n_textbook_direction + " of " + s.n_changes + " times.");
+
+    const lastFx = data.latest_fx.reduce((a, r) => (r[2] > a ? r[2] : a), "");
+    setText("asof", "Data as of " + dayName(lastFx) + " for rates and FX, " + monthLong(k.cpi_yoy.date) + " for CPI and " +
+      monthLong(k.unemployment.date) + " for unemployment.");
+
+    document.querySelector("#fxTable tbody").innerHTML = data.latest_fx.map((r) => {
       const d = r[3] >= 0.1 ? 4 : 5;
-      const diff = r[4] ? ((r[3] / r[4] - 1) * 100).toFixed(2) + "%" : "n/a";
-      return "<tr><td>" + r[0] + " (" + r[1] + ")</td><td>" + r[2] + "</td><td>" + fmt(r[3], d) +
-        "</td><td>" + fmt(r[4], d) + "</td><td>" + diff + "</td><td>" + fmt(r[5], 1) + "%</td></tr>";
+      const diff = r[4] ? signed((r[3] / r[4] - 1) * 100, 2) + "%" : "n/a";
+      return "<tr><td>" + r[0] + ' <span class="name">' + r[1] + '</span></td><td class="hide-sm">' + r[2] + "</td><td>" + num(r[3], d) +
+        "</td><td>" + diff + "</td><td>" + num(r[5], 1) + "%</td></tr>";
     }).join("");
   }
 
@@ -264,15 +429,18 @@
     render();
   }));
   if (window.matchMedia) {
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => data && render());
+    window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => data && render());
   }
 
   fetch("data/dashboard.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then((json) => { data = json; renderStatic(); render(); })
+    .then((json) => {
+      data = json;
+      renderStatic();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(render); else render();
+    })
     .catch((err) => {
-      document.getElementById("kpis").innerHTML =
-        '<div class="error">Could not load data/dashboard.json (' + err.message + "). Run make export first.</div>";
+      setHtml("kpis", '<div class="error">Could not load data/dashboard.json (' + err.message + "). Run make export, then make dashboard.</div>");
     });
 })();
 </script>

@@ -1,6 +1,6 @@
 currency_code,currency_name,boc_series_id,first_rate_date,last_rate_date,n_observations
-EUR,Euro,FXEURCAD,2017-01-03,2026-11-03,2454
-USD,US dollar,FXUSDCAD,2017-01-03,2026-11-03,2454
-GBP,UK pound sterling,FXGBPCAD,2017-01-03,2026-11-03,2454
 CNY,Chinese renminbi,FXCNYCAD,2017-01-03,2026-11-03,2454
+EUR,Euro,FXEURCAD,2017-01-03,2026-11-03,2454
+GBP,UK pound sterling,FXGBPCAD,2017-01-03,2026-11-03,2454
 JPY,Japanese yen,FXJPYCAD,2017-01-03,2026-11-03,2454
+USD,US dollar,FXUSDCAD,2017-01-03,2026-11-03,2454
