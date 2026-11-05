@@ -304,6 +304,14 @@ dependencies.
 - Statistics Canada Web Data Service: https://www.statcan.gc.ca/en/developers/wds. Data is used
   under the Statistics Canada Open Licence.
 
+## Problems I ran into
+
+- **Freshness checks that couldn't fail.** I first checked Statistics Canada freshness on the whole table. The labour force survey comes out about two weeks before CPI, so a stalled CPI feed would never have tripped it. Each series now has its own freshness check.
+- **Revisions.** StatCan revises past CPI and LFS values, and the January LFS revision goes back three years. A 3 month look-back missed that, so the StatCan pull is now a full reload every run. It's only about 260 rows.
+- **Rate decisions vs effective dates.** The policy rate series shows the new rate on its effective date, which since 2022 is the day after the announcement. The rate change window starts two business days early so the market move isn't missed.
+- **No dbt packages.** `dbt deps` couldn't reach GitHub from my build machine, so I wrote three small generic tests (`accepted_range`, `unique_combination`, `no_month_gaps`) instead of pulling in dbt_utils.
+- **Workflow permissions.** The first version gave the whole workflow Pages write access. Now only the deploy job can write, and every action is pinned to a commit.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
