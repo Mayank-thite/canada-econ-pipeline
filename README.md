@@ -2,7 +2,7 @@
 
 <img src="docs/img/banner.svg" alt="Canada Econ Pipeline" width="100%">
 
-A daily ELT pipeline on free Canadian public data. Python loads it into PostgreSQL,<br>dbt models it, and GitHub Actions runs it on a schedule and publishes a dashboard.
+Interest rates, exchange rates and inflation, refreshed on a schedule with no server to look after.
 
 [![CI](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/ci.yml)
 [![Daily pipeline](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/daily-pipeline.yml/badge.svg)](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/daily-pipeline.yml)
