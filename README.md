@@ -1,4 +1,26 @@
-# canada-econ-pipeline
+<div align="center">
+
+<img src="docs/img/banner.svg" alt="Canada Econ Pipeline" width="100%">
+
+A daily ELT pipeline on free Canadian public data. Python loads it into PostgreSQL,<br>dbt models it, and GitHub Actions runs it on a schedule and publishes a dashboard.
+
+[![CI](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/ci.yml)
+[![Daily pipeline](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/daily-pipeline.yml/badge.svg)](https://github.com/Mayank-thite/canada-econ-pipeline/actions/workflows/daily-pipeline.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-1.11-FF694B?logo=dbt&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-scheduled-2088FF?logo=githubactions&logoColor=white)
+![Power BI](https://img.shields.io/badge/Power%20BI-ready-F2C811?logo=powerbi&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-F7DF1E)
+
+![Policy rate changes studied](https://img.shields.io/badge/Policy%20rate%20changes%20studied-28%20since%202017-B91C1C)
+![CAD direction matched the textbook](https://img.shields.io/badge/CAD%20direction%20matched%20the%20textbook-20%20of%2028-DC2626)
+![Runs](https://img.shields.io/badge/Runs-every%20weekday-16A34A)
+[![Live dashboard](https://img.shields.io/badge/Live%20dashboard-open-0F172A?logo=githubpages&logoColor=white)](https://mayank-thite.github.io/canada-econ-pipeline/)
+
+[**What the data says**](#-what-the-data-says) · [**What it does**](#-what-it-does) · [**Architecture**](#-architecture) · [**Run it locally**](#-run-it-locally) · [**Schedule**](#-schedule) · [**Limitations**](#-limitations) · [**Data sources and terms**](#-data-sources-and-terms) · [**Technical details**](#-technical-details) · [**Problems I ran into**](#-problems-i-ran-into)
+
+</div>
 
 A daily ELT pipeline on free Canadian public data. Python loads Bank of Canada and Statistics Canada
 data into PostgreSQL, dbt models it into marts, and GitHub Actions runs the whole thing on a schedule
@@ -8,10 +30,11 @@ I rebuilt this in 2026 on public data, as a small pipeline that runs on its own 
 
 ![Dashboard screenshot](docs/img/dashboard.png)
 
-Live dashboard: https://mayank-thite.github.io/canada-econ-pipeline/ (the screenshot is from a local
-run on 2026-11-04).
+> [!TIP]
+> Live dashboard: https://mayank-thite.github.io/canada-econ-pipeline/ (the screenshot is from a local
+> run on 2026-11-04).
 
-## What the data says
+## 📊 What the data says
 
 I wanted the dashboard to answer two questions, not just draw lines.
 
@@ -34,7 +57,7 @@ One thing I only noticed while building this: series V39079 shows the new rate o
 effect. Since 2022 that is the day after the announcement, so a window that starts on the effective
 date would miss the reaction. That is why the window starts two business days earlier.
 
-## What it does
+## 💬 What it does
 
 - **Extract and load (Python).** Pulls 7 daily Bank of Canada series (USD, EUR, GBP, JPY and CNY
   against CAD, the policy rate and CORRA) and 2 monthly Statistics Canada series (all-items CPI and
@@ -54,7 +77,7 @@ date would miss the reaction. That is why the window starts two business days ea
   deploys the dashboard and dbt docs to GitHub Pages. A separate CI workflow lints and tests every PR.
 - **Use.** A static HTML dashboard (Chart.js) and a Power BI guide with DAX measures.
 
-## Architecture
+## 🧱 Architecture
 
 ```mermaid
 flowchart LR
@@ -78,9 +101,10 @@ flowchart LR
     GHA -.runs.-> RAW
     GHA -.dbt build.-> MARTS
     GHA -.deploy.-> PAGES
+classDef default fill:#fee2e2,stroke:#dc2626,color:#450a0a
 ```
 
-## Run it locally
+## 🚀 Run it locally
 
 You need Python 3.12 or newer, Docker, and `make`.
 
@@ -120,7 +144,7 @@ data/marts/          last exported mart files from my local run
 .github/workflows/   daily pipeline and CI
 ```
 
-## Schedule
+## ⏰ Schedule
 
 `.github/workflows/daily-pipeline.yml` runs at 22:30 UTC Monday to Friday (5:30 pm EST, 6:30 pm
 EDT). The Bank of Canada posts each business day's FX rates around 4:30 pm ET, and Statistics
@@ -135,11 +159,41 @@ It is small (about 17,500 rows) and takes a few seconds. The incremental logic m
 database that persists, like the Docker one: a second local run only pulls the last 7 days of
 Bank of Canada data.
 
-## Data dictionary
+## 🚧 Limitations
+
+- Only 9 series. Adding more is a line in `ingest/config.py` plus a staging model.
+- The Actions database is thrown away after each run. The marts are kept as a build artifact for
+  30 days and the dashboard JSON is published to Pages, but there is no long-lived warehouse.
+  Pointing `PGHOST` at a hosted Postgres would fix that.
+- The dashboard shows USD/CAD only on the charts. The other currencies are in the table and the
+  mart files.
+- GitHub turns off scheduled workflows in a repo with no commits for 60 days. If the dashboard stops
+  updating, that is the first thing to check, and re-enabling it in the Actions tab fixes it.
+- The rate change analysis has 28 events, three of them in March 2020. I would not put much weight
+  on any single bar.
+- CPI is not seasonally adjusted, so `inflation_mom_pct` has a seasonal pattern. Year over year is
+  the number to look at.
+- Freshness thresholds are based on normal release timing. A long holiday or a delayed Statistics
+  Canada release can trigger a warning that is not a real problem.
+- The Power BI file itself is not in the repo, only the connection steps and measures.
+
+## 🧾 Data sources and terms
+
+- Bank of Canada Valet API: https://www.bankofcanada.ca/valet/docs. See the Bank's terms of use at
+  https://www.bankofcanada.ca/terms/.
+- Statistics Canada Web Data Service: https://www.statcan.gc.ca/en/developers/wds. Data is used
+  under the Statistics Canada Open Licence.
+
+## 🔧 Technical details
+For readers who want the full detail. Click a section to open it.
+
+<details>
+<summary><b>Data dictionary</b></summary>
+<br>
 
 All marts are in the `marts` schema. Row counts are from my local run on 2026-11-04.
 
-### `fct_fx_daily` (12,270 rows)
+#### `fct_fx_daily` (12,270 rows)
 
 One row per currency per business day since 2017-01-03.
 
@@ -153,7 +207,7 @@ One row per currency per business day since 2017-01-03.
 | rolling_avg_30d | numeric | Average of the last 30 business days, null until 30 exist |
 | volatility_30d_annualized_pct | numeric | Std dev of the last 30 daily log returns, times sqrt(252), in percent |
 
-### `fct_rates_daily` (2,555 rows)
+#### `fct_rates_daily` (2,555 rows)
 
 | Column | Type | Description |
 |---|---|---|
@@ -161,7 +215,7 @@ One row per currency per business day since 2017-01-03.
 | policy_rate_pct | numeric | Target for the overnight rate (series V39079) |
 | corra_pct | numeric | Canadian Overnight Repo Rate Average (series AVG.INTWO) |
 
-### `fct_cpi_monthly` (129 rows)
+#### `fct_cpi_monthly` (129 rows)
 
 | Column | Type | Description |
 |---|---|---|
@@ -171,7 +225,7 @@ One row per currency per business day since 2017-01-03.
 | inflation_yoy_pct | numeric | Change from the same month a year earlier |
 | release_time | timestamp | When Statistics Canada published the value |
 
-### `fct_macro_monthly` (118 rows)
+#### `fct_macro_monthly` (118 rows)
 
 One row per month from 2017-01 to the last complete month of FX data.
 
@@ -190,7 +244,7 @@ One row per month from 2017-01 to the last complete month of FX data.
 CPI and unemployment come out 5 to 7 weeks after the month ends, so the latest month or two have
 nulls in those columns. That is expected.
 
-### `fct_policy_rate_changes` (28 rows)
+#### `fct_policy_rate_changes` (28 rows)
 
 One row per change in the policy rate since 2017. Holds are not in here, because V39079 only shows
 the rate, not decision dates.
@@ -208,7 +262,7 @@ the rate, not decision dates.
 | median_abs_move_all_days_pct | numeric | Benchmark: median size of that window across all days |
 | cad_moved_textbook_direction | boolean | Hike then stronger CAD, or cut then weaker CAD |
 
-### `dim_currency` (5 rows)
+#### `dim_currency` (5 rows)
 
 | Column | Type | Description |
 |---|---|---|
@@ -218,7 +272,11 @@ the rate, not decision dates.
 | first_rate_date, last_rate_date | date | Date range loaded |
 | n_observations | bigint | Business days with a rate |
 
-## Data quality and failure handling
+</details>
+
+<details>
+<summary><b>Data quality and failure handling</b></summary>
+<br>
 
 **An API is down or slow.** Every request retries up to 4 times with exponential backoff on
 timeouts, 429 and 5xx responses. If a source still fails, the loader rolls back that source, writes
@@ -264,12 +322,20 @@ through the parser, the dbt tests catch it at the model level:
 - `unique_combination` and `unique` on every grain, `relationships` from facts to `dim_currency`,
   and `no_month_gaps` on every monthly model.
 
-## Power BI
+</details>
+
+<details>
+<summary><b>Power BI</b></summary>
+<br>
 
 See [docs/powerbi.md](docs/powerbi.md) for how to connect Power BI Desktop to the marts, and
 [docs/measures.dax](docs/measures.dax) for the measures.
 
-## Tools and versions
+</details>
+
+<details>
+<summary><b>Tools and versions</b></summary>
+<br>
 
 PostgreSQL 16, Python 3.13, dbt-core 1.12.6 with dbt-postgres 1.11.0, pandas, pyarrow, requests,
 pytest, ruff, sqlfluff, Chart.js 4.4.1, GitHub Actions. All Python packages are pinned in
@@ -279,32 +345,9 @@ I wrote the generic tests (`accepted_range`, `unique_combination`, `no_month_gap
 `transform/tests/generic/` instead of pulling in dbt_utils, so the dbt project has no package
 dependencies.
 
-## Limitations
+</details>
 
-- Only 9 series. Adding more is a line in `ingest/config.py` plus a staging model.
-- The Actions database is thrown away after each run. The marts are kept as a build artifact for
-  30 days and the dashboard JSON is published to Pages, but there is no long-lived warehouse.
-  Pointing `PGHOST` at a hosted Postgres would fix that.
-- The dashboard shows USD/CAD only on the charts. The other currencies are in the table and the
-  mart files.
-- GitHub turns off scheduled workflows in a repo with no commits for 60 days. If the dashboard stops
-  updating, that is the first thing to check, and re-enabling it in the Actions tab fixes it.
-- The rate change analysis has 28 events, three of them in March 2020. I would not put much weight
-  on any single bar.
-- CPI is not seasonally adjusted, so `inflation_mom_pct` has a seasonal pattern. Year over year is
-  the number to look at.
-- Freshness thresholds are based on normal release timing. A long holiday or a delayed Statistics
-  Canada release can trigger a warning that is not a real problem.
-- The Power BI file itself is not in the repo, only the connection steps and measures.
-
-## Data sources and terms
-
-- Bank of Canada Valet API: https://www.bankofcanada.ca/valet/docs. See the Bank's terms of use at
-  https://www.bankofcanada.ca/terms/.
-- Statistics Canada Web Data Service: https://www.statcan.gc.ca/en/developers/wds. Data is used
-  under the Statistics Canada Open Licence.
-
-## Problems I ran into
+## 🐛 Problems I ran into
 
 - **Freshness checks that couldn't fail.** I first checked Statistics Canada freshness on the whole table. The labour force survey comes out about two weeks before CPI, so a stalled CPI feed would never have tripped it. Each series now has its own freshness check.
 - **Revisions.** StatCan revises past CPI and LFS values, and the January LFS revision goes back three years. A 3 month look-back missed that, so the StatCan pull is now a full reload every run. It's only about 260 rows.
@@ -312,6 +355,6 @@ dependencies.
 - **No dbt packages.** `dbt deps` couldn't reach GitHub from my build machine, so I wrote three small generic tests (`accepted_range`, `unique_combination`, `no_month_gaps`) instead of pulling in dbt_utils.
 - **Workflow permissions.** The first version gave the whole workflow Pages write access. Now only the deploy job can write, and every action is pinned to a commit.
 
-## License
+## 📜 License
 
 MIT. See [LICENSE](LICENSE).
